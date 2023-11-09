@@ -437,6 +437,8 @@ escritor:
 	
 	lb $t6, quebra_linha
 	
+	li $t7, 0x2E	# Código ASCII para "."
+	li $t8, 0x30	# Código ASCII para "0"
 	
 	
 	loop_escritor:
@@ -456,10 +458,16 @@ escritor:
 		#move $a1, $t5
 		#li $a2, 1
 		#syscall
+
 		
 		addi $t5, $t5, 1
+		sb $t7, 0($t5)		# Adiciona .
 		
-		sb $t6, 0($t5)
+		addi $t5, $t5, 1
+		sb $t8, 0($t5)		# Adiciona 0
+				
+		addi $t5, $t5, 1
+		sb $t6, 0($t5)		# Adiciona \n
 		
 		#li $v0, 15
 		#move $a1, $t5
@@ -473,8 +481,8 @@ escritor:
 		
 	fim_loop_escritor:
 	
-		#li $t7, 0
-		#sb $t7, 0($t5)
+		li $t7, 0
+		sb $t7, 0($t5)
 		
 		la $t5, buffer
 	
@@ -484,7 +492,7 @@ escritor:
 		# a0 ja contem end
 		move $a0, $t9
 		move $a1, $t5
-		li $a2, 400
+		li $a2, 1000		# ALTERTAR PARA O NÚMERO EXATO DE CARACTERES DO YTEST
 		syscall
 		
 		# Fechamento do arquivo
@@ -816,15 +824,6 @@ knn:
 	
 	li $s0, 0		# Índice para percorrer as linhas em xtest
 	loop_linhas_xtest:
-		
-		
-		li $v0, 4
-		la $a0, sep
-		syscall
-		
-		li $v0, 11
-		lb $a0, quebra_linha
-		syscall
 		
 		beq $s0, $t3, fim_loop_linhas_xtest
 	
