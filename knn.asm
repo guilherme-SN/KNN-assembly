@@ -2,6 +2,7 @@
 .data
 	xtrainFile: 	.asciiz "xtrain.txt"
 	linhaXtrain:	.word 0
+	colunasX:	.word 0			# Espaço de memória para armazenar o número de elementos por coluna nos arquivos X
 	
 	xtestFile:	.asciiz "xtest.txt"
 	linhaXtest:	.word 0
@@ -31,6 +32,7 @@
   	ytest: 		.space 102400	# Espaço de 100 Kbytes para armazenar
   
   	tamanho: 	.word 4		# Definição do tamanho de cada campo dos arrays de saída (float = 4 bytes)
+  	
   
 .text
 .globl main
@@ -43,10 +45,19 @@ main:
 	
 	la $a0, xtrainFile
 	jal leitor
+	jal conta_colunas
 	
+	#li $v0, 1
+	#lw $a0, colunasX
+	#syscall
+	
+	
+	lw $t0, tamanho
+	lw $t1, colunasX
+	mul $t2, $t0, $t1	# Multiplica a quantidade de números por colunas por 4 bytes (float)
 	
 	la $a0, xtrain
-	li $a1, 32		# $a1 representa o tamanho da linha para cada arquivo lido
+	move $a1, $t2		# $a1 representa o tamanho da linha para cada arquivo lido
 				# Nesse arquivo, cada linha possui 8 números de 4 bytes, ou seja, cada linha possui 32 bytes
 	jal separa_linha
 	
@@ -70,7 +81,7 @@ main:
 	
 	
 	la $a0, xtest
-	li $a1, 32		# $a1 representa o tamanho da linha para cada arquivo lido
+	move $a1, $t2		# $a1 representa o tamanho da linha para cada arquivo lido
 				# Nesse arquivo, cada linha possui 8 números de 4 bytes, ou seja, cada linha possui 32 bytes
 	jal separa_linha
 	
@@ -109,9 +120,10 @@ main:
 	#la $a0, ytrain
 	#jal printa_dados
 	
-	jal knn
 	
-	jal printa_array
+	jal chama_knn
+	
+	#jal printa_array
 	
 	jal escritor
 	
@@ -325,8 +337,6 @@ printa_array_class:
 		jr $ra		
 		
 
-		
-	
 leitor:
 
 	# Salva contexto
@@ -381,6 +391,15 @@ leitor:
 printa_buffer:
 	
 	#s contexto
+	subi $sp, $sp, 8
+	sw $t0, 24($sp)
+	sw $t1, 20($sp)
+	sw $t5, 16($sp)
+	#sw $a2, 12($sp)
+	#sw $s0, 8($sp)
+	sw $ra, 4($sp)
+	sw $fp, 0($sp)
+	move $fp, $sp
 	
 	la $t0, buffer
 	li $t1, 0
@@ -486,6 +505,8 @@ escritor:
 		
 		la $t5, buffer
 		
+		jal printa_array
+		
 		mul $t0, $t0, 4		# Multiplica o número de linhas pela quantidade de caractere por linha
 					# dessa forma, resultando no número total de caracteres do ytest
 		
@@ -560,7 +581,66 @@ reseta_buffer:
 		
 		jr $ra
 	
+
+conta_colunas:
+
+	# Salva contexto
+	subi $sp, $sp, 32
+	sw $t0, 28($sp)
+	sw $t1, 24($sp)
+	sw $t2, 20($sp)
+	sw $t3, 16($sp)
+	sw $t4, 12($sp)
+	sw $t5, 8($sp)
+	sw $ra, 4($sp)
+	sw $fp, 0($sp)
+	move $fp, $sp
 	
+	la $t0, buffer
+	
+	lb $t1, quebra_linha		# Carrega "\n" para $t1
+	lb $t2, separador		# Carrega "," para $t2	
+	
+	li $t4, 1			# Contador de elementos numa linha
+	
+	loop_conta_colunas:
+	
+		lb $t3, 0($t0)		# Carrega caractere atual
+		
+		
+		beq $t3, $t2, conta_elemento		# Verifica se é o final do número
+		beq $t3, $t1, fim_linha_conta_colunas	# Verifica se é o final da linha
+		
+		addi $t0, $t0, 1	# Vai para o próximo caractere em buffer[]
+		
+		j loop_conta_colunas
+		
+		conta_elemento:
+		
+			addi $t4, $t4, 1	# Adiciona 1 na quantidade de colunas
+			addi $t0, $t0, 1	# Vai para o próximo caractere em buffer[]
+		
+			j loop_conta_colunas
+	
+	fim_linha_conta_colunas:
+	
+		la $t5, colunasX
+		sw $t4, 0($t5)		# Salva a quantidade de elementos na variável colunasX
+	
+		# Recupera contexto
+		lw $t0, 28($sp)
+		lw $t1, 24($sp)
+		lw $t2, 20($sp)
+		lw $t3, 16($sp)
+		lw $t4, 12($sp)
+		lw $t5, 8($sp)
+		lw $ra, 4($sp)
+		lw $fp, 0($sp)
+		addi $sp, $sp, 32
+	
+		jr $ra		# Retorna para o chamador
+
+
 separa_linha:
 
 	# Salva contexto
@@ -796,14 +876,115 @@ cria_array:
   	jr $ra
 
 
+chama_knn:
+
+	# Salva contexto
+	subi $sp, $sp, 40
+	sw $t0, 36($sp)
+	sw $t1, 32($sp)
+	sw $t2, 28($sp)
+	sw $t3, 24($sp)
+	sw $t4, 20($sp)
+	sw $t5, 16($sp)
+	sw $t6, 12($sp)
+	sw $s0, 8($sp)
+	sw $ra, 4($sp)
+	sw $fp, 0($sp)
+	move $fp, $sp
+	
+	la $t0, xtest
+	la $t3, ytest
+	lw $t4, linhaXtest
+	lw $t5, colunasX
+	
+	li $s0, 0		# Índice para percorrer as linhas em xtest
+	loop_linhas_xtest:
+		
+		beq $s0, $t4, fim_loop_linhas_xtest
+	
+		li $a0, 0	# Parâmetro contendo a quantidade de elementos no array de menores distâncias
+		
+		mul $t6, $t5, 4
+		
+		mul $t1, $s0, $t6
+		add $t1, $t1, $t0
+		
+		la $a0, xtrain
+		move $a1, $t1
+		la $a2, ytrain
+		la $a3, k
+		jal knn
+		
+		# Adiciona classificação no ytest
+		sll $t2, $s0, 2
+		add $t2, $t2, $t3
+		sw $v0, 0($t2)
+		
+		addi $s0, $s0, 1
+		
+		j loop_linhas_xtest
+		
+	fim_loop_linhas_xtest:
+	
+		# Recupera contexto
+		lw $t0, 36($sp)
+		lw $t1, 32($sp)
+		lw $t2, 28($sp)
+		lw $t3, 24($sp)
+		lw $t4, 20($sp)
+		lw $t5, 16($sp)
+		lw $t6, 12($sp)
+		lw $s0, 8($sp)
+		lw $ra, 4($sp)
+		lw $fp, 0($sp)
+		addi $sp, $sp, 40
+	
+		jr $ra
+
+
 # Função para calcular distância euclidiana entre xtrain e xtest e selecionar as K menores distâncias
 knn:
 	# Salva o contexto
-	addi $sp, $sp, 8
+	subi $sp, $sp, 80
+	sw $t0, 76($sp)
+	sw $t1, 72($sp)
+	sw $t2, 68($sp)
+	sw $t3, 64($sp)
+	sw $t4, 60($sp)
+	sw $t5, 56($sp)
+	sw $t6, 52($sp)
+	sw $t7, 48($sp)
+	sw $t8, 44($sp)
+	sw $t9, 40($sp)
+	sw $s0, 36($sp)
+	sw $s1, 32($sp)
+	sw $s2, 28($sp)
+	sw $s3, 24($sp)
+	sw $s4, 20($sp)
+	sw $s5, 16($sp)
+	sw $s6, 12($sp)
+	sw $s7, 8($sp)
 	sw $ra, 4($sp)
 	sw $fp, 0($sp)
   	move $fp, $sp
   	
+	# Carrega dados
+	move $t0, $a0		# xtrain
+	move $t1, $a1		# xtest
+	move $t2, $a2		# ytrain
+	la $s6, ytest
+	#lw $t3, linhaXtest
+	lw $t3, colunasX
+	
+	lw $t5, linhaXtrain
+	
+	
+	#lw $s7 , colunasX	# Carrega a quantidade de colunas para $s7
+	
+	#sll $s8, $s7, 2
+	
+
+	
 	
 	# Criação dos arrays
 	jal cria_array
@@ -813,21 +994,19 @@ knn:
 	jal cria_array
 	move $s3, $v0		# Salva o endereço do array das classificações das menores distâncias em $s3
 	
-	# Carrega dados
-	la $t0, xtrain
-	la $t1, xtest
-	la $t2, ytrain
-	la $s6, ytest
-	lw $t3, linhaXtest
-	lw $t5, linhaXtrain
+	
+	#la $t0, xtrain
+	#la $t1, xtest
+	#la $t2, ytrain
 	
 	
+	mul $s6, $t3, 4
 	
 	
-	li $s0, 0		# Índice para percorrer as linhas em xtest
-	loop_linhas_xtest:
+	#li $s0, 0		# Índice para percorrer as linhas em xtest
+	#loop_linhas_xtest:
 		
-		beq $s0, $t3, fim_loop_linhas_xtest
+	#	beq $s0, $t3, fim_loop_linhas_xtest
 	
 		li $a0, 0	# Parâmetro contendo a quantidade de elementos no array de menores distâncias
 		
@@ -843,40 +1022,23 @@ knn:
 	
 			loop_valores:
 				
-				beq $t4, 8, fim_loop_valores
+				beq $t4, $t3, fim_loop_valores
 				
 				# Carrega xtest[$s0][$t5]
-				mul $t6, $s0, 32	# linha * 32 = end_linha 
+				#mul $t6, $s0, 32	# linha * 32 = end_linha 
 				sll $t7, $t4, 2		# coluna * 4 = end_coluna
-				add $t6, $t6, $t7	# end = end_linha + end_coluna
-				add $t6, $t6, $t1	# end_final = end + base_array
+				add $t6, $t1, $t7	# end = end_linha + end_coluna
+				#add $t6, $t6, $t1	# end_final = end + base_array
 				
 				l.s $f2, 0($t6)
 			
 				# Carrega xtrain[$s1][$t5]
-				mul $t6, $s1, 32	# linha * 32 = end_linha 
+				mul $t6, $s1, $s6	# linha * 32 = end_linha 
 				sll $t7, $t4, 2		# coluna * 4 = end_coluna
 				add $t6, $t6, $t7	# end = end_linha + end_coluna
 				add $t6, $t6, $t0	# end_final = end + base_array
 				
 				l.s $f1, 0($t6)
-				
-				# Imprime
-				#li $v0, 2
-				#mov.s $f12, $f2
-				#syscall
-				
-				#li $v0, 11
-				#lb $a0, separador
-				#syscall
-				
-				#li $v0, 2
-				#mov.s $f12, $f1
-				#syscall
-				
-				#li $v0, 11
-				#lb $a0, quebra_linha
-				#syscall
 				
 				# Faz subtração e eleva ao quadrado
 				sub.s $f1, $f2, $f1
@@ -923,7 +1085,8 @@ knn:
 		fim_loop_linhas_xtrain:
 			
 			# Avaliação da classificação dos K menores valores
-			lw $t7, k
+			#lw $t7, k
+			lw $t8, k
 			
 			li $s4, 0		# Armazena a quantidade de 0's
 			li $s5, 0		# Armazena a quantidade de 1's
@@ -934,7 +1097,7 @@ knn:
 			li $t9, 0
 			loop_classifica:
 			
-				beq $t9, $t7, fim_loop_classifica
+				beq $t9, $t8, fim_loop_classifica
 				
 				l.s $f0, 0($s3)
 				
@@ -976,22 +1139,40 @@ knn:
 				fim_retorno:
 				
 					# Adiciona classificação no ytest
-					sll $t9, $s0, 2
-					add $t9, $t9, $s6
-					sw $v0, 0($t9)
+					#sll $t9, $s0, 2
+					#add $t9, $t9, $s6
+					#sw $v0, 0($t9)
 			
-					addi $s0, $s0, 1
+					#addi $s0, $s0, 1
 			
-					j loop_linhas_xtest
+					#j loop_linhas_xtest
 		
-	fim_loop_linhas_xtest:
+					
 	
-		# Recupera o contexto
-		lw $ra, 4($sp)
-		lw $fp, 0($sp)
-  		subi $sp, $sp, 8
+					# Recupera o contexto
+					lw $t0, 76($sp)
+					lw $t1, 72($sp)
+					lw $t2, 68($sp)
+					lw $t3, 64($sp)
+					lw $t4, 60($sp)
+					lw $t5, 56($sp)
+					lw $t6, 52($sp)
+					lw $t7, 48($sp)
+					lw $t8, 44($sp)
+					lw $t9, 40($sp)
+					lw $s0, 36($sp)
+					lw $s1, 32($sp)
+					lw $s2, 28($sp)
+					lw $s3, 24($sp)
+					lw $s4, 20($sp)
+					lw $s5, 16($sp)
+					lw $s6, 12($sp)
+					lw $s7, 8($sp)
+					lw $ra, 4($sp)
+					lw $fp, 0($sp)
+					addi $sp, $sp, 80
 	
-		jr $ra		# Retorna ao chamador
+					jr $ra		# Retorna ao chamador
 
 
 # Função para selecionar os menores
