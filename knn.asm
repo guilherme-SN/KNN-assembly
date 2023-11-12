@@ -20,15 +20,15 @@
 	k:		.word 1
 	
 	.align 2
-	buffer: 	.space 20480	# Espaço de 20480 bytes para armazenar até 20480 caracteres
+	buffer: 	.space 102400	# Espaço de 100 Kbytes para armazenar arquivo máximo informado pelo professor
 	
-  	xtrain: 	.space 32000	# Espaço de 32000 bytes para armazenar até 1000 linhas com 8 números de 4 bytes
+  	xtrain: 	.space 102400	# Espaço de 100 Kbytes para armazenar arquivo máximo informado pelo professor
 	
-  	xtest: 		.space 32000	# Espaço de 32000 bytes para armazenar até 1000 linhas com 8 números de 4 bytes
+  	xtest: 		.space 102400	# Espaço de 100 Kbytes para armazenar arquivo máximo informado pelo professor
   	
-  	ytrain: 	.space 4000	# Espaço de 32000 bytes para armazenar até 1000 linhas com 1 números de 4 bytes
+  	ytrain: 	.space 102400	# Espaço de 100 Kbytes para armazenar arquivo máximo informado pelo professor
   	
-  	ytest: 		.space 4000	# Espaço de 32000 bytes para armazenar até 1000 linhas com 1 números de 4 bytes
+  	ytest: 		.space 102400	# Espaço de 100 Kbytes para armazenar
   
   	tamanho: 	.word 4		# Definição do tamanho de cada campo dos arrays de saída (float = 4 bytes)
   
@@ -355,7 +355,7 @@ leitor:
 	li $v0, 14		# Código de serviço para ler o arquivo
 	move $a0, $s0		# Descritor do arquivo
 	la $a1, buffer  	# Buffer que armazenará TODO o arquivo
-	la $a2, 20480		# hardcoded buffer length
+	la $a2, 102400		# hardcoded buffer length
 	syscall
 	
 
@@ -533,7 +533,7 @@ reseta_buffer:
 	
 	la $t0, buffer
 	li $t1, 0	# Contador
-	li $t2, 20480	# Tamanho do buffer
+	li $t2, 102400	# Tamanho do buffer
 	li $t3, 0x0	# Carrega caractere nulo 
 	
 	loop_buffer:
