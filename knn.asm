@@ -485,14 +485,16 @@ escritor:
 		sb $t7, 0($t5)
 		
 		la $t5, buffer
-	
+		
+		mul $t0, $t0, 4		# Multiplica o número de linhas pela quantidade de caractere por linha
+					# dessa forma, resultando no número total de caracteres do ytest
 		
 		li $v0, 15
-			
 		# a0 ja contem end
 		move $a0, $t9
 		move $a1, $t5
-		li $a2, 1000		# ALTERTAR PARA O NÚMERO EXATO DE CARACTERES DO YTEST
+		#li $a2, 1000		# ALTERTAR PARA O NÚMERO EXATO DE CARACTERES DO YTEST
+		move $a2, $t0
 		syscall
 		
 		# Fechamento do arquivo
